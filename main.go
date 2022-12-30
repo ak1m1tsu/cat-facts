@@ -1,31 +1,26 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
 	mongoPort := flag.String("mp", "27017", "The mongodb port.")
 	servicePort := flag.String("p", "3000", "The microservice port.")
 	flag.Parse()
-	client, err := mongo.Connect(
-		context.TODO(),
-		options.Client().ApplyURI(fmt.Sprintf("mongodb://localhost:%s", *mongoPort)),
-	)
+
+	storage, err := NewMongoStore(fmt.Sprintf("mongodb://localhost:%s", *mongoPort))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	worker := NewCatFactWorker(client, "https://catfact.ninja/fact")
+	worker := NewCatFactWorker(storage, "https://catfact.ninja/fact")
 	go worker.Start()
 
-	server := NewServer(client)
+	server := NewServer(storage)
 	http.HandleFunc("/facts", server.handleGetAllFacts)
 	http.ListenAndServe(fmt.Sprintf(":%s", *servicePort), nil)
 }
